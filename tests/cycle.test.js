@@ -834,3 +834,26 @@ describe("getFertilityStatus with profile — 'overdue' status", () => {
     expect(r.overdueDays).toBe(14);
   });
 });
+
+/* ─────────  Pre-launch regressiewacht: phase is altijd geldig  ───────── */
+// Het dashboard-inzicht (app.jsx) en de legacy tips-fallback verwachten dat
+// getCycleState altijd een van de vier bekende fases teruggeeft — ook voor
+// anticonceptie-gebruikers (suppressesCycle) en corrupte/lege profielen.
+describe('getCycleState.phase — altijd een geldige fase', () => {
+  const VALID = Object.values(PHASES);
+
+  it('geeft een geldige fase voor elke anticonceptie-optie', () => {
+    for (const opt of CONTRACEPTION_OPTIONS) {
+      const state = getCycleState({
+        lastPeriodStart: '2026-06-20', cycleLength: 28, periodLength: 5,
+        contraception: opt.id,
+      });
+      expect(VALID, opt.id).toContain(state.phase);
+    }
+  });
+
+  it('geeft een geldige fase zonder cyclusdata en bij corrupte datum', () => {
+    expect(VALID).toContain(getCycleState({}).phase);
+    expect(VALID).toContain(getCycleState({ lastPeriodStart: 'geen-datum', cycleLength: 28 }).phase);
+  });
+});

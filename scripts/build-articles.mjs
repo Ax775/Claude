@@ -48,7 +48,11 @@ function parseFrontmatter(raw) {
 
 /** Shared <head> + chrome for every article/hub page. */
 function pageShell({ locale, title, description, canonical, jsonLd, bodyHtml, alternates = [] }) {
-  const ld = jsonLd ? `\n  <script type="application/ld+json">\n${JSON.stringify(jsonLd, null, 2)}\n  </script>` : '';
+  // <-escape voorkomt een </script>-breakout: frontmatter-tekst belandt
+  // via JSON.stringify in dit blok en zou anders rauwe HTML kunnen injecteren.
+  const ld = jsonLd
+    ? `\n  <script type="application/ld+json">\n${JSON.stringify(jsonLd, null, 2).replace(/</g, '\\u003c')}\n  </script>`
+    : '';
   const alt = alternates.map((a) => `\n  <link rel="alternate" hreflang="${a.hreflang}" href="${a.href}" />`).join('');
   return `<!DOCTYPE html>
 <html lang="${locale}">
@@ -235,6 +239,18 @@ export function buildArticles(distDir = 'dist') {
     for (const file of readdirSync(dir).filter((f) => f.endsWith('.md'))) {
       const { meta, body } = parseFrontmatter(readFileSync(`${dir}/${file}`, 'utf8'));
       if (!meta.slug) throw new Error(`${file}: frontmatter needs a slug`);
+      // Slug gaat rauw in href-attributen, <loc>-XML én mkdirSync-paden:
+      // strikte validatie sluit attribuut-/XML-injectie en path traversal
+      // in één keer uit.
+      if (!/^[a-z0-9-]+$/.test(meta.slug)) {
+        throw new Error(`${file}: slug "${meta.slug}" must be kebab-case ([a-z0-9-])`);
+      }
+      // Ruwe HTML met scriptcapaciteit hoort niet in artikel-markdown thuis —
+      // committers zijn vertrouwd, maar AI-gedrafte bodies kunnen per ongeluk
+      // HTML bevatten. Falen bij de bouw is goedkoper dan saneren bij runtime.
+      if (/<\s*(script|iframe|object|embed)\b/i.test(body)) {
+        throw new Error(`${file}: raw <script>/<iframe>-style HTML is not allowed in article markdown`);
+      }
       items.push({ locale, base, meta, body });
       if (meta.translationKey) {
         (byKey[meta.translationKey] ||= []).push({ locale, href: `${SITE}/${base}/${meta.slug}/` });

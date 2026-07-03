@@ -79,7 +79,12 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(req)
         .then((res) => {
-          if (res && res.ok && res.type === 'basic') {
+          // Ververs de shell-kopie UITSLUITEND voor de app-shell zelf.
+          // Zonder deze pad-check overschreef een bezoek aan een statische
+          // artikelpagina (/artikelen/…) de gecachte shell, waarna de PWA
+          // offline een artikel toonde in plaats van de app.
+          const isShell = path === '/' || path === '/index.html';
+          if (isShell && res && res.ok && res.type === 'basic') {
             const copy = res.clone();
             caches.open(CACHE).then((c) => c.put('./index.html', copy)).catch(() => null);
           }
@@ -100,7 +105,15 @@ self.addEventListener('fetch', (event) => {
   // Falls back to cache when offline. Matches both dev mode (./src/*.jsx)
   // and the production build (./app.js + ./styles.css) without dispatch.
   const isAppCode = /\.(jsx|css)$/.test(path)
-    || (path.endsWith('.js') && (path.includes('/src/') || path.endsWith('/app.js')));
+    || (path.endsWith('.js') && (
+      path.includes('/src/')
+      || path.endsWith('/app.js')
+      // sentry.js rolt niet mee in de app.js-cache-hash; zonder deze match
+      // viel hij in het cache-first-pad en kon hij eeuwig stale blijven.
+      || path.endsWith('/sentry.js')
+      // esbuild code-split chunks (dynamic imports, bv. de Supabase-SDK)
+      || /\/chunk-[A-Za-z0-9]+\.js$/.test(path)
+    ));
   if (isAppCode) {
     event.respondWith(
       fetch(req)

@@ -85,6 +85,11 @@ export async function personalizeFreeText(args) {
   // No free text ⇒ stay on the free path entirely.
   if (typeof userText !== 'string' || !userText.trim()) return fallback;
 
+  // No template frame (unknown category or empty pool) ⇒ no AI call either:
+  // the Haiku prompt is designed around a template hint, and an unframed call
+  // for an out-of-taxonomy category would cost money for unvetted output.
+  if (!base) return null;
+
   try {
     const result = await client({
       model: MODELS.personalize, // Haiku — the ONLY model the runtime may use

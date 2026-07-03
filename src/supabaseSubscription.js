@@ -28,7 +28,7 @@ export { isConfigured };
  *   data shape: { status, current_period_end, ... } or null if none.
  */
 export async function fetchSubscription() {
-  const sb = getSupabase();
+  const sb = await getSupabase();
   if (!sb) return { data: null, error: 'not_configured' };
   const user = await getCurrentUser();
   if (!user) return { data: null, error: 'not_authenticated' };
@@ -63,7 +63,7 @@ export async function fetchSubscription() {
  * returns an error code the caller can surface.
  */
 export async function startCheckout({ trialDaysLeft = 0 } = {}) {
-  const sb = getSupabase();
+  const sb = await getSupabase();
   if (!sb) return { error: 'not_configured' };
   const user = await getCurrentUser();
   if (!user) return { error: 'not_authenticated' };
@@ -88,7 +88,7 @@ export async function startCheckout({ trialDaysLeft = 0 } = {}) {
  * Requires a logged-in user with an existing Stripe customer.
  */
 export async function openBillingPortal() {
-  const sb = getSupabase();
+  const sb = await getSupabase();
   if (!sb) return { error: 'not_configured' };
   const user = await getCurrentUser();
   if (!user) return { error: 'not_authenticated' };

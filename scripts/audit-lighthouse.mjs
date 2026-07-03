@@ -17,6 +17,7 @@
  *   node scripts/audit-lighthouse.mjs --skip-build
  */
 import { createServer } from 'node:http';
+import { gzipSync } from 'node:zlib';
 import { readFile, stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join, extname } from 'node:path';
@@ -54,11 +55,21 @@ function startServer() {
         if (!filePath.startsWith(DIST)) { res.writeHead(403); return res.end(); }
         const s = await stat(filePath).catch(() => null);
         if (!s || !s.isFile()) { res.writeHead(404); return res.end('not found'); }
-        const body = await readFile(filePath);
-        res.writeHead(200, {
+        let body = await readFile(filePath);
+        const headers = {
           'Content-Type': MIME[extname(filePath)] || 'application/octet-stream',
           'Cache-Control': 'no-store',
-        });
+        };
+        // Gzip tekst-assets, net als productie: Cloudflare Pages serveert
+        // álles brotli/gzip. Zonder dit meet Lighthouse een ongecomprimeerd
+        // scenario dat live nooit bestaat en straft het de bundle ~4× te zwaar.
+        const compressible = /^(text\/|application\/(javascript|json|manifest))/
+          .test(headers['Content-Type']);
+        if (compressible && /\bgzip\b/.test(req.headers['accept-encoding'] || '')) {
+          body = gzipSync(body);
+          headers['Content-Encoding'] = 'gzip';
+        }
+        res.writeHead(200, headers);
         res.end(body);
       } catch (err) {
         res.writeHead(500);

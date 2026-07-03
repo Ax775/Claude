@@ -86,6 +86,45 @@ describe('free-text path — Haiku only', () => {
   });
 });
 
+describe('dashboard-invarianten (regressiewachten uit de pre-launch review)', () => {
+  const PHASES = ['menstrual', 'follicular', 'ovulatory', 'luteal'];
+
+  it('selectTemplate levert voor elke phase × locale een inzicht (dashboard valt nooit in de fallback)', () => {
+    for (const locale of ['nl', 'en']) {
+      for (const phase of PHASES) {
+        const res = selectTemplate('cycle-phase', { locale, phase, state: { name: '' }, seed: 'x' });
+        expect(res, `${locale}/${phase}`).not.toBeNull();
+        expect(res.text.length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('selectTemplate zonder phase degradeert naar null, niet naar een crash', () => {
+    expect(selectTemplate('cycle-phase', { locale: 'nl', state: {} })).toBeNull();
+  });
+
+  it('cycleDay-varianten zijn bereikbaar wanneer cycleDay is gezet', () => {
+    // Regressie: app.jsx gaf cycleDay eerst niet door, waardoor 2 van de 18
+    // varianten dode content waren. Met cycleDay in state moet er over veel
+    // seeds minstens één {cycleDay}-pick vallen.
+    const texts = new Set();
+    for (let d = 0; d < 40; d++) {
+      const res = selectTemplate('cycle-phase', {
+        locale: 'nl', phase: 'follicular', state: { name: '', cycleDay: 9 }, seed: `dag-${d}`,
+      });
+      texts.add(res.text);
+    }
+    expect([...texts].some((t) => /\b9\b/.test(t))).toBe(true);
+  });
+
+  it('personalizeFreeText doet géén AI-call voor een onbekende category', async () => {
+    const client = vi.fn(async () => ({ text: 'zou nooit mogen' }));
+    const res = await personalizeFreeText({ category: 'bestaat-niet', userText: 'iets', client });
+    expect(client).not.toHaveBeenCalled();
+    expect(res).toBeNull();
+  });
+});
+
 describe('source-level invariant', () => {
   it('personalize.js never references the generation model', () => {
     const src = readFileSync(new URL('../src/lib/content/personalize.js', import.meta.url), 'utf8');

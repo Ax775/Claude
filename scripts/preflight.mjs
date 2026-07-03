@@ -22,6 +22,7 @@ import { readFile, stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join } from 'node:path';
 import { createServer } from 'node:http';
+import { gzipSync } from 'node:zlib';
 import { tmpdir } from 'node:os';
 import { extname } from 'node:path';
 
@@ -140,11 +141,20 @@ async function runLighthouse() {
         const filePath = join(ROOT, 'dist', pathname);
         const s = await stat(filePath).catch(() => null);
         if (!s || !s.isFile()) { res.writeHead(404); return res.end(); }
-        res.writeHead(200, {
+        let body = await readFile(filePath);
+        const headers = {
           'Content-Type': MIME[extname(filePath)] || 'application/octet-stream',
           'Cache-Control': 'no-store',
-        });
-        res.end(await readFile(filePath));
+        };
+        // Gzip zoals productie (Cloudflare serveert altijd brotli/gzip) —
+        // anders meet Lighthouse een scenario dat live niet bestaat.
+        if (/^(text\/|application\/(javascript|json|manifest))/.test(headers['Content-Type'])
+            && /\bgzip\b/.test(req.headers['accept-encoding'] || '')) {
+          body = gzipSync(body);
+          headers['Content-Encoding'] = 'gzip';
+        }
+        res.writeHead(200, headers);
+        res.end(body);
       } catch (err) { res.writeHead(500); res.end(String(err)); }
     });
     srv.on('error', rejectStart);
