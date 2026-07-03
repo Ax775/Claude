@@ -31,3 +31,28 @@
 
 - **`npx vitest run` globt `.claude/worktrees/`.** Andere sessies' worktrees worden
   meegepakt en kunnen rood zijn zonder dat het jouw code is. Filter op pad bij triage.
+## Pre-launch QA (2026-07-03)
+
+- **Lighthouse lokaal ≠ productie.** De audit-servers serveerden ongecomprimeerd
+  terwijl Cloudflare altijd brotli/gzip levert — de perf-score mat een scenario
+  dat live niet bestaat (64 vs 89). Les: maak de meet-harness representatief
+  vóór je de app "traag" verklaart. Observed FCP (74ms) eerst checken had de
+  richting meteen verraden.
+- **Simulated vs observed metrics lezen.** Lantern-FCP 5.7s bij observed 74ms =
+  het probleem zit in de dependency-graph (bundle-gewicht), niet in de echte
+  render. De statische SEO-hero deed zijn werk al.
+- **Feature-gewicht hoort bij de feature.** 175KB supabase-js in de hoofdbundle
+  voor een feature achter een login → dynamic import + esbuild splitting. Denk
+  bij elke dep: wie betaalt dit bij first paint?
+- **Console-logbuffer accumuleert over de sessie.** Na een fix de conditie zelf
+  verifiëren (localStorage-key checken), niet alleen de log lezen — anders lijkt
+  een gefixte bug nog open.
+- **Generieke test-clicks vervuilen je eigen bevindingen.** Twee blinde
+  `button`-clicks raakten de "−" van cycluslengte → vals alarm "default 27".
+  Gerichte selectors of per-stap snapshots voorkomen zelf-geïnduceerde bugs.
+- **Privacy-review loont op de datalaag, niet de UI.** share_level werd alleen
+  in de UI gehandhaafd; de partner had RLS-SELECT op de hele rij. Bij een
+  privacy-first product is dataminimalisatie bij de bron de enige echte grens.
+- **SW-shell-cache + statische pagina's bijten elkaar.** Een navigate-handler
+  die élke navigatie als "de shell" cachet, vergiftigt de PWA zodra je statische
+  artikel-URL's toevoegt. Cache-keys expliciet aan paden binden.

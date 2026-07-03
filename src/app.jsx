@@ -3183,19 +3183,44 @@ function Dashboard({ profile, onUpdateProfile, onOpenSettings, onOpenVoeding }) 
   const state   = useMemo(() => getCycleState(profile), [profile]);
   const targets = useMemo(() => getDailyTargets(profile, state.phase), [profile, state.phase]);
   const hidden  = useMemo(() => new Set(profile.hiddenCards || []), [profile.hiddenCards]);
+  // De ISO-datum als state + minuut-tick, zodat het dagelijkse inzicht ook
+  // daadwerkelijk rolt wanneer een PWA over middernacht heen open blijft
+  // staan (useMemo met alleen phase/name/locale in deps herberekende anders
+  // pas bij de eerstvolgende remount).
+  const [todayIso, setTodayIso] = useState(() => toISODate(new Date()));
+  useEffect(() => {
+    const tick = () => setTodayIso((prev) => {
+      const now = toISODate(new Date());
+      return now === prev ? prev : now;
+    });
+    const id = setInterval(tick, 60_000);
+    document.addEventListener('visibilitychange', tick);
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', tick); };
+  }, []);
   const insightText = useMemo(() => {
-    const seed = toISODate(new Date());
-    const name = profile.name ? profile.name.split(' ')[0] : '';
+    const seed = todayIso;
+    // Defensief: een corrupt profiel (name als getal/object) mag het dashboard
+    // niet laten crashen — de template-laag verwacht een string.
+    const name = typeof profile.name === 'string' ? profile.name.split(' ')[0] : '';
     // Primary source: the content pipeline (offline templates, BRAND_NAME-aware,
-    // guardrail-clean). Falls back to the legacy insights pool if a category
+    // guardrail-clean). cycleDay meegeven zodat ook de {cycleDay}-varianten
+    // meedoen in de pool. Falls back to the legacy insights pool if a category
     // ever returns nothing.
-    const res = personalize('cycle-phase', { locale, phase: state.phase, state: { name }, seed });
+    const res = personalize('cycle-phase', {
+      locale,
+      phase: state.phase,
+      state: { name, cycleDay: state.cycleDay },
+      seed,
+    });
     if (res) return res.text;
-    const pool = getTips(state.phase);
+    // Legacy-fallback met guard: een onbekende phase levert géén pool op en
+    // mag degraderen naar een lege string i.p.v. een TypeError.
+    const pool = getTips(state.phase) || [];
+    if (!pool.length) return '';
     let h = 0;
     for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) | 0;
     return pool[Math.abs(h) % pool.length](name);
-  }, [state.phase, profile.name, getTips, locale]);
+  }, [state.phase, state.cycleDay, profile.name, getTips, locale, todayIso]);
   const PhaseIcon = PHASE_ICONS[state.phase];
 
   const [log, commitLog, restoreLog] = useDailyLog();
@@ -6118,6 +6143,11 @@ function App() {
 
     // React to auth changes in the same tab (e.g. magic-link completion) so
     // the partner UI updates without a manual page refresh.
+    // cancelled-vlag: onAuthChange resolvet async (lazy supabase-chunk); als
+    // het effect al is opgeruimd vóór de promise landt (StrictMode
+    // double-mount, snelle unmount) moet de subscription direct weer los —
+    // anders lekt hij permanent en vuurt checkPartner dubbel.
+    let cancelled = false;
     onPartnerAuthChange(async (session) => {
       if (session) {
         checkPartner();
@@ -6125,9 +6155,12 @@ function App() {
         setInviteIsAuthed(false);
         setIsPartner(false);
       }
-    }).then((fn) => { unsubscribe = fn; });
+    }).then((fn) => {
+      if (cancelled) { fn(); return; }
+      unsubscribe = fn;
+    });
 
-    return () => unsubscribe();
+    return () => { cancelled = true; unsubscribe(); };
   }, []);
 
   // Partner: push a fresh snapshot when the owner's cycle phase changes,

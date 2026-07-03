@@ -1,84 +1,89 @@
-# SEO-optimalisatie Paced — todo
+# Pre-launch QA — volledige app-doorlichting
 
-> Doel: maximale vindbaarheid (organisch + social) én conversie, zonder MDR-rode
-> lijnen te overschrijden. Domein `https://paced.nl`, publieke naam **Paced**,
-> uitgever **Xaven BV** (bron: docs/app-store-metadata.md, capacitor.config.json).
+> Doel: geen licht tussen de kieren vóór livegang. Functioneel, UI/UX, code,
+> privacy, performance, SEO-laag. Elke bevinding → fixen → herverifiëren.
 
-## Vastgestelde uitgangssituatie (codebase)
-- `<html lang="nl">` ✓, maar **body = lege `<div id="root">`** → crawlers/social-
-  unfurlers (WhatsApp, LinkedIn, iMessage, FB — géén JS) zien NUL content.
-- `<head>`: alleen viewport/theme/description (dun, generiek). **Geen** canonical,
-  **geen** Open Graph, **geen** Twitter Cards, **geen** JSON-LD.
-- robots.txt minimaal (geen Sitemap-directive). **Geen** sitemap.xml.
-- Geen OG-/social-share-image (1200×630).
-- build.mjs stript alleen dev-scripts → toegevoegde meta/link/JSON-LD + statische
-  body-content **overleven de build**. Kopieert manifest/_headers/robots; sitemap
-  moet toegevoegd.
-- Herbruikbare, MDR-getoetste copy (NL+EN) in docs/app-store-metadata.md.
+## Fase 1 — Statisch (tests, build, tooling)
+- [ ] `vitest` volledige suite (excl. `.claude/worktrees` ruis) — alles groen?
+- [ ] `node build.mjs` — schoon? CSP-hashes? artikel-laag?
+- [ ] `scripts/preflight.mjs` draaien (bestaande launch-check)
+- [ ] Lighthouse-audit (`scripts/audit-lighthouse.mjs`) indien haalbaar
 
-## MDR-rode lijnen (docs/mdr-positioning.md) — copy mag NOOIT:
-diagnose/behandeling/ziektevoorspelling claimen · "vervangt anticonceptie" ·
-medisch-hulpmiddel-taal. Positionering = rustige, privacy-first lifestyle/wellness-
-tracker; alles op het toestel; geen account/tracking/reclame.
+## Fase 2 — Runtime (gebouwde app in echte browser, dist op :4173)
+- [ ] Onboarding: naam → vervolgstappen → dashboard (happy path)
+- [ ] Onboarding: rare invoer (lege naam, extreem lange naam, XSS-string)
+- [ ] Dashboard: alle kaarten renderen; dagelijks inzicht uit content-pipeline
+- [ ] Loggen: period start, stemming, water, journal-note → persist na reload
+- [ ] Journal: 280-char limiet, speciale tekens
+- [ ] Kalender/history views
+- [ ] Instellingen: locale-switch NL↔EN, dark mode, data-export (CSV/JSON), wipe
+- [ ] Premium/trial-gating zichtbaar correct
+- [ ] Mobiel viewport (375px): layout, touch targets, safe-area
+- [ ] Dark mode visueel
+- [ ] SW/offline: laadt de app zonder netwerk na eerste bezoek?
+- [ ] Artikel-pagina's: rendering, links, hub; 404-gedrag
+- [ ] Console: nul errors op alle geteste flows
 
-## Stappen (impact-volgorde)
-- [ ] **index.html `<head>`** — title (keyword+benefit), sterke description (~155),
-      canonical, robots, application-name/author, OG (type/site_name/title/desc/url/
-      image/locale nl_NL + alternate en_GB), Twitter summary_large_image.
-- [ ] **JSON-LD** in `<head>` — WebSite + Organization (Xaven BV) + SoftwareApplication
-      (HealthApplication, gratis offer, inLanguage nl/en, publisher). GEEN nep-rating,
-      GEEN FAQPage (guideline-risico + content-mismatch), GEEN medical schema.
-- [ ] **index.html `<body>`** — statische SEO-hero in `#root` (H1 + value-prop +
-      privacy-features + CTA), die React bij mount vervangt. Crawlers zonder JS
-      krijgen echte content; users de app. + `<noscript>` fallback.
-- [ ] **robots.txt** — `Sitemap: https://paced.nl/sitemap.xml`.
-- [ ] **sitemap.xml** (nieuw) — homepage (SPA: 1 indexeerbare URL).
-- [ ] **build.mjs** — sitemap.xml naar dist kopiëren (assets/ al gekopieerd → OG-image meelift).
-- [ ] **scripts/generate-og-image.mjs** + `npm run gen:og` — 1200×630 branded PNG →
-      assets/og-image.png (sharp, zelfde patroon als gen:icon). Genereren + committen.
-- [ ] **manifest.webmanifest** — description aanlijnen met positionering (klein).
+## Fase 3 — Code-review (subagents, parallel)
+- [ ] Security/privacy-review van code die deze sessie is toegevoegd
+      (content-pipeline, personalize, SEO/SSG, app.jsx-wiring)
+- [ ] Correctness-review cycle/insights-integratie + storage-randgevallen
+- [ ] Verifieer elke bevinding vóór fixen (geen false positives shippen)
 
-## Risico's / niet-doelen
-- Geen hreflang naar niet-bestaande per-taal-URLs (SPA = 1 URL, client-side i18n) →
-  alleen og:locale + alternate, eerlijk.
-- Geen aparte support/privacy-pagina's bouwen (zijn `?legal=`/`?…` query-params).
-- Statische hero kort houden (geen duplicate-content-wildgroei); React vervangt 'm.
-- Niets dat de gehardende CSP breekt (JSON-LD = inline <script type=ld+json>, geen JS-exec
-  → valt buiten script-src hashing? check: build hasht inline <script> zonder type? verifiëren).
+## Fase 4 — Fixes + herverificatie
+- [ ] Alle CONFIRMED bevindingen fixen (root cause, minimale impact)
+- [ ] Regressie: tests + build + preview-hercheck
+- [ ] Rapport in dit bestand; lessen → lessons.md
 
-## Verificatie
-- build draait; dist/index.html bevat canonical/OG/JSON-LD; dist/sitemap.xml aanwezig.
-- JSON-LD valide (parse-check). OG-image 1200×630 bestaat.
-- Bestaande tests blijven groen; app boot zonder console-errors (preview-rooktest).
+## Niet-doelen
+- Nieuwe features. Journal-AI (staat bewust uit). Content-redactie (YMYL-feitencheck is menselijk werk).
 
-## Review (afgerond 2026-06-16)
-**Alle stappen klaar, build groen, dist geverifieerd.**
+## Rapport (afgerond)
+**Eindstand: alle gates groen.** Tests 266/266 · build schoon · preflight: perf 89,
+a11y 100, BP 100, SEO 100 · runtime-walkthrough zonder console-errors.
 
-Gewijzigd/nieuw:
-- `index.html` `<head>`: keyword+benefit title, sterke description, canonical
-  (paced.nl), robots (max-image-preview:large), application-name/author/publisher,
-  keywords, volledige Open Graph (incl. og:image 1200×630 + locale nl_NL/en_GB),
-  Twitter summary_large_image, JSON-LD @graph (WebSite + Organization Xaven BV +
-  SoftwareApplication HealthApplication, gratis offer). Geen nep-rating/FAQ/medical.
-- `index.html` `<body>`: statische SEO-hero in #root (H1 + value-prop + 4 privacy-
-  features + CTA + MDR-disclaimer) + <noscript>. React vervangt 'm bij mount.
-- `robots.txt`: Sitemap-directive. `sitemap.xml` (nieuw): homepage.
-- `build.mjs`: sitemap.xml → dist.
-- `scripts/generate-og-image.mjs` + `npm run gen:og`: branded 1200×630 PNG
-  (sharp, systeem-fonts, icoon gecomposit). `assets/og-image.png` gegenereerd+gecommit.
-- `manifest.webmanifest`: name "Paced — Cyclus & Welzijn" + aangelijnde description.
+### Gevonden & gefixt (18 bevindingen; 2 vals alarm)
+Infra/tooling:
+- vitest globde `.claude/worktrees` mee → `vitest.config.js` (fixt `npm test` + preflight-gate).
+- Lighthouse perf 64: (a) **679KB monolitische bundle** → supabase-js lazy chunk
+  (dynamic import + esbuild splitting; app.js −28% → 476KB); (b) audit-servers
+  serveerden ongecomprimeerd (productie = altijd brotli) → gzip in beide
+  audit-servers. Waargenomen FCP was al 74ms (statische hero); score nu 89.
+- SW: chunk- en sentry.js-matcher toegevoegd (anders stale cache-first).
 
-Verificatie:
-- `node build.mjs` ✓; CSP nog 4 hashes (JSON-LD = data-blok, niet gehasht, valt buiten script-src).
-- dist: canonical/OG/twitter/JSON-LD aanwezig; sitemap.xml + og-image gekopieerd;
-  robots-directive aanwezig. JSON-LD parse-valide (3 types).
-- Preview (gebouwde app): boot zonder console-errors; rauwe HTML toont hero
-  (crawler/no-JS); React vervangt hero → h1Count=1, géén duplicate content;
-  sitemap 200 application/xml, og-image 200 image/png.
+Runtime:
+- "Schema versie mismatch" 24× console-spam → alleen warnen bij bestaand
+  profiel, max 1× per sessie (storage.js).
 
-MDR-veilig: geen diagnose/behandeling/anticonceptie-claims; disclaimer in hero.
+Correctness (review-agent, alle geverifieerd):
+- cycleDay niet doorgegeven aan insight → 2/18 templates dood (app.jsx).
+- getTips-fallback zonder guard → latente white-screen bij onbekende fase.
+- Inzicht rolde niet over om middernacht (PWA open) → dag-tick + deps.
+- Corrupt profiel (non-string name) kon Dashboard crashen → typeof-guard.
+- personalizeFreeText deed AI-call zonder template-kader → early return.
 
-Vervolg (buiten scope, optioneel):
-- PWA-manifest `screenshots` toevoegen (richer install-UI) — vereist schermafbeeldingen.
-- Echte content-/blog-pagina's voor long-tail organisch verkeer (SPA heeft nu 1 URL).
-- Google Search Console + Bing Webmaster verifiëren na deploy; sitemap indienen.
+Security/privacy (review-agent, alle geverifieerd):
+- **P1 privacy**: pushSnapshot uploadde cycle_day+note óók bij share_level
+  'phase' (partner kon via REST alles lezen) → dataminimalisatie aan de bron.
+- P1: JSON-LD `</script>`-breakout in artikel-SSG → `<`-escape.
+- P1: SW shell-poisoning: artikelbezoek overschreef de PWA-shell-cache →
+  alleen root-navigaties verversen de shell.
+- Edge function (personalize): CORS gelockt op paced.nl, body-cap 4KB,
+  category-allowlist + expliciete DEPLOY-GATE-comment (rate-limit vereist).
+- signOut reset `_loading` niet → oude client bleef uitgedeeld.
+- Auth-listener-leak bij unmount vóór lazy-chunk resolve → cancelled-vlag.
+- Slug-validatie + script/iframe-weigering in artikel-SSG.
+- Entropie-comment invite-codes gecorrigeerd (48 bits, niet ~62).
+- Geverifieerd OK: CSP-hashing vs chunks, checkout-clamp (0–60), XSS via
+  naam-invoer (React escapet), guardrails-runtime.
+
+Runtime-walkthrough afgevinkt: onboarding (happy + XSS-input), AVG-consent-gate,
+dashboard + pipeline-inzicht, journal 280-limiet + emoji + persistentie na
+reload, alle 5 tabs, settings (locale NL↔EN, dark/light, 3 exports, reset),
+mobiel 375px (geen overflow), SW-registratie + cache, artikelen NL/EN + 404 +
+sitemap. Vals alarm: "default 27" (eigen testklik op −) en de 24 warnings ná
+de fix (historische log-buffer).
+
+Bewust gelaten (geen launch-blocker): GEWICHT KG-label-wrap op mobiel
+(kosmetisch); server-side rate-limit personalize-proxy (pas nodig bij deploy,
+staat in DEPLOY-GATE + taak-chip); brute-force-throttling invite-RPC (serverwerk).

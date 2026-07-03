@@ -48,7 +48,14 @@ console.log(`• Bundling app.jsx → dist/app.js  (sourcemap: ${wantSourcemap ?
 await esbuild({
   entryPoints: ['src/app.jsx'],
   bundle:      true,
-  outfile:     `${distDir}/app.js`,
+  // Code-splitting: dynamic import()s (bv. @supabase/supabase-js in
+  // supabasePartner.js) worden aparte chunk-[hash].js bestanden naast
+  // app.js, zodat de hoofdbundel klein blijft. splitting vereist outdir
+  // i.p.v. outfile; entryNames pint de entry op het bestaande ./app.js pad.
+  splitting:   true,
+  outdir:      distDir,
+  entryNames:  'app',
+  chunkNames:  'chunk-[hash]',
   format:      'esm',
   platform:    'browser',
   target:      ['es2020', 'safari14', 'firefox100', 'chrome100'],

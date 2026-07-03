@@ -20,14 +20,37 @@
 //
 // Deploy: supabase functions deploy personalize
 
+// ─── DEPLOY-GATE ────────────────────────────────────────────────────────
+// NIET deployen vóór (zie ook tasks/: journal-AI consent-UI):
+//   1. Rate limiting per IP (bv. Upstash Redis of Cloudflare Turnstile) —
+//      zonder limiet kan iedereen die de URL kent Anthropic-tegoed opbranden.
+//   2. Expliciete auth-keuze: journaling-gebruikers hebben géén account
+//      (lokaal-first), dus `--no-verify-jwt` is nodig — dáárom is de
+//      rate-limit hierboven geen nice-to-have maar een voorwaarde.
+//   3. Consent-UI live in de app (paced.ai.consent) vóór PACED_CONTENT_PROXY_URL gezet wordt.
+// ────────────────────────────────────────────────────────────────────────
+
 const PERSONALIZE_MODEL = 'claude-haiku-4-5-20251001'; // mirrors MODELS.personalize
 const MAX_INPUT_CHARS = 600;
 const MAX_OUTPUT_TOKENS = 160;
+const MAX_BODY_BYTES = 4096; // ruim boven een legitiem request; blokkeert payload-misbruik
 
+// Alleen het eigen domein mag deze proxy aanroepen — geen wildcard-CORS op
+// een endpoint dat geld kost per call. (Browsers handhaven dit; curl niet —
+// dáárvoor is de rate limit uit de deploy-gate.)
+const ALLOWED_ORIGIN = 'https://paced.nl';
 const CORS = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Spiegel van CATEGORY_IDS in src/lib/content/spec.js — houd in sync.
+// body.category wordt in de system prompt geïnterpoleerd; een allowlist
+// sluit prompt-injectie via dat veld uit.
+const ALLOWED_CATEGORIES = new Set([
+  'daily-checkin', 'cycle-phase', 'sleep', 'movement',
+  'nutrition', 'mindfulness', 'notification', 'journal',
+]);
 
 const FALLBACK_TOV = `Warm, never patronising. No medical claims, no diagnoses. No calorie or
 weight numbers. No comparative body language. No shame, guilt, or diet-culture framing. Body-positive,
@@ -43,13 +66,20 @@ Deno.serve(async (req) => {
     const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
     if (!apiKey) return json({ error: 'not configured' }, 503);
 
+    // Body-cap vóór het parsen: een multi-MB payload hoort hier nooit.
+    const contentLength = Number(req.headers.get('content-length') ?? 0);
+    if (contentLength > MAX_BODY_BYTES) return json({ error: 'payload too large' }, 413);
+
     const body = await req.json().catch(() => ({}));
     const userText = String(body.userText ?? '').slice(0, MAX_INPUT_CHARS).trim();
     if (!userText) return json({ text: '' });
 
     const locale = body.locale === 'en' ? 'en' : 'nl';
     const templateHint = String(body.templateHint ?? '').slice(0, 400);
-    const category = String(body.category ?? 'journal').slice(0, 40);
+    // Allowlist i.p.v. vrij veld: category wordt in de system prompt
+    // geïnterpoleerd en mag geen injectie-vector zijn.
+    const rawCategory = String(body.category ?? 'journal');
+    const category = ALLOWED_CATEGORIES.has(rawCategory) ? rawCategory : 'journal';
     const tov = Deno.env.get('PACED_TONE_OF_VOICE') ?? FALLBACK_TOV;
 
     const system =

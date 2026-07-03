@@ -52,14 +52,22 @@ export function notifyStorageError(err) {
 /*  Profile                                                            */
 /* ------------------------------------------------------------------ */
 
+// Waarschuw hooguit één keer per sessie — loadProfile draait bij elke render
+// en spamde anders tientallen keren dezelfde regel naar de console.
+let schemaWarned = false;
+
 /** @returns {object|null} */
 export function loadProfile() {
   try {
+    const raw = localStorage.getItem(PROFILE_KEY);
+    // Alleen een mismatch als er daadwerkelijk een profiel bestaat: een verse
+    // gebruiker (nog niets opgeslagen, versie-key ontbreekt) heeft niets te
+    // migreren en hoort geen warning te zien.
     const storedVersion = Number(localStorage.getItem(SCHEMA_VERSION_KEY));
-    if (!storedVersion || storedVersion < SCHEMA_VERSION) {
+    if (raw && (!storedVersion || storedVersion < SCHEMA_VERSION) && !schemaWarned) {
+      schemaWarned = true;
       console.warn('Schema versie mismatch, migratie mogelijk nodig');
     }
-    const raw = localStorage.getItem(PROFILE_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;

@@ -8,42 +8,58 @@
  * If not set, all async functions return { data: null, error: 'not_configured' }
  * and the app continues working without any partner features.
  *
- * Implementation note: @supabase/supabase-js is statically imported and
- * bundled by esbuild. Previously we did a runtime `await import()` from
- * esm.sh which (a) failed under the production CSP (`script-src 'self'`
- * + `connect-src 'self'`) and (b) added 1–2s cold-start latency on
- * mobile. Bundling adds ~35KB to dist/app.js but the feature actually
- * works now.
+ * Implementation note: @supabase/supabase-js is loaded via a dynamic
+ * `import()` that esbuild code-splits into a same-origin lazy chunk
+ * (CSP-safe, unlike the old esm.sh runtime import). The ~175KB SDK is
+ * only fetched when a partner/checkout feature actually runs, keeping
+ * the main bundle — and first paint — lean for everyone else.
  */
-import { createClient } from '@supabase/supabase-js';
-
 let _supabase = null;
+let _loading = null;
 
 // Exported so sibling modules (e.g. supabaseSubscription.js) share one
 // client instance + auth session rather than spinning up their own.
+//
+// ASYNC + dynamic import: @supabase/supabase-js is ~175KB of the bundle but
+// only partner-linking and checkout need it — most sessions never touch
+// either. `import()` splits it into a lazy chunk (esbuild `splitting`), so
+// the main bundle shrinks and first paint isn't taxed for a feature behind a
+// login. detectSessionInUrl still works: supabase reads location.hash at
+// client creation, and the magic-link hash is untouched by the time a
+// partner view triggers this. All callers were already async.
 export function getSupabase() {
-  if (_supabase) return _supabase;
+  if (_supabase) return Promise.resolve(_supabase);
   const url = window.PACED_SUPABASE_URL;
   const key = window.PACED_SUPABASE_ANON_KEY;
-  if (!url || !key) return null;
-  // Auth options are made explicit rather than left to the SDK defaults.
-  // autoRefreshToken + persistSession ARE on by default in supabase-js v2,
-  // but a magic-link partner who hasn't opened the app in >1h would silently
-  // hit an expired access token if a future SDK bump ever flipped the
-  // default — pinning them here makes the refresh contract part of our code,
-  // not the dependency's. detectSessionInUrl lets the magic-link redirect
-  // (…/#access_token=…) establish the session on load; a namespaced
-  // storageKey keeps the partner session from colliding with anything else
-  // on the same origin.
-  _supabase = createClient(url, key, {
-    auth: {
-      autoRefreshToken:  true,
-      persistSession:    true,
-      detectSessionInUrl: true,
-      storageKey:        'paced.supabase.auth',
-    },
-  });
-  return _supabase;
+  if (!url || !key) return Promise.resolve(null);
+  _loading ||= import('@supabase/supabase-js')
+    .then(({ createClient }) => {
+      // Auth options are made explicit rather than left to the SDK defaults.
+      // autoRefreshToken + persistSession ARE on by default in supabase-js v2,
+      // but a magic-link partner who hasn't opened the app in >1h would
+      // silently hit an expired access token if a future SDK bump ever flipped
+      // the default — pinning them here makes the refresh contract part of our
+      // code, not the dependency's. detectSessionInUrl lets the magic-link
+      // redirect (…/#access_token=…) establish the session on load; a
+      // namespaced storageKey keeps the partner session from colliding with
+      // anything else on the same origin.
+      _supabase = createClient(url, key, {
+        auth: {
+          autoRefreshToken:  true,
+          persistSession:    true,
+          detectSessionInUrl: true,
+          storageKey:        'paced.supabase.auth',
+        },
+      });
+      return _supabase;
+    })
+    .catch(() => {
+      // Chunk failed to load (offline, dev mode without bundling): behave as
+      // "not configured" so partner/checkout features degrade gracefully.
+      _loading = null;
+      return null;
+    });
+  return _loading;
 }
 
 // Resolve the authenticated user, tolerant of network failure. sb.auth.getUser()
@@ -76,7 +92,7 @@ export async function getCurrentUser() {
 }
 
 export async function signInWithMagicLink(email, redirectTo) {
-  const sb = getSupabase();
+  const sb = await getSupabase();
   if (!sb) return { data: null, error: 'not_configured' };
   try {
     return await sb.auth.signInWithOtp({
@@ -105,17 +121,24 @@ export async function onAuthChange(callback) {
 }
 
 export async function signOut() {
-  const sb = getSupabase();
+  const sb = await getSupabase();
   if (!sb) return;
   try { await sb.auth.signOut(); } catch { /* best-effort — clear locally regardless */ }
+  // Reset béíde caches: _loading bleef anders de oude (uitgelogde) client
+  // uitdelen en de _supabase-reset was dan dood gewicht.
   _supabase = null;
+  _loading = null;
 }
 
 // Invite codes use cryptographically-strong randomness — Math.random()
 // is predictable (V8's xorshift128+ state is recoverable from a few
 // observed outputs) which matters even with our SECURITY DEFINER RPC
-// because the entropy is the only secret protecting the invite. 12
-// base-36 chars from 64 random bytes yields ~62 bits of entropy.
+// because the entropy is the only secret protecting the invite.
+// Entropy: 8 random bytes, each encoded as exactly 2 base-36 chars;
+// slice(0,12) keeps 6 of those bytes = 48 bits. Ample for short-lived,
+// single-use invite codes (brute force ≈ 2^47 guesses gemiddeld), maar
+// server-side attempt-throttling op accept_partner_invite blijft de
+// aangewezen tweede laag.
 // Uppercase to match the migration 0002 invite_code expectations.
 function randomCode() {
   const bytes = new Uint8Array(8);
@@ -126,7 +149,7 @@ function randomCode() {
 }
 
 export async function createInvite(shareLevel = 'phase') {
-  const sb = getSupabase();
+  const sb = await getSupabase();
   if (!sb) return { data: null, error: 'not_configured' };
   const { user, error } = await requireUser(sb);
   if (error) return { data: null, error };
@@ -140,7 +163,7 @@ export async function createInvite(shareLevel = 'phase') {
 }
 
 export async function getMyLink() {
-  const sb = getSupabase();
+  const sb = await getSupabase();
   if (!sb) return { data: null, error: 'not_configured' };
   const { user, error } = await requireUser(sb);
   if (error) return { data: null, error };
@@ -152,7 +175,7 @@ export async function getMyLink() {
 }
 
 export async function deleteMyLink() {
-  const sb = getSupabase();
+  const sb = await getSupabase();
   if (!sb) return { data: null, error: 'not_configured' };
   const { user, error } = await requireUser(sb);
   if (error) return { data: null, error };
@@ -167,7 +190,7 @@ export async function deleteMyLink() {
 // Returns one of: 'invite_invalid' | 'invite_already_used' | 'self_invite' |
 // 'not_authenticated' | 'not_configured' | null (success).
 export async function acceptInvite(code) {
-  const sb = getSupabase();
+  const sb = await getSupabase();
   if (!sb) return { data: null, error: 'not_configured' };
   const { error: authErr } = await requireUser(sb);
   if (authErr) return { data: null, error: authErr };
@@ -196,7 +219,7 @@ export async function acceptInvite(code) {
 }
 
 export async function getPartnerSnapshot() {
-  const sb = getSupabase();
+  const sb = await getSupabase();
   if (!sb) return { data: null, error: 'not_configured' };
   const { user, error } = await requireUser(sb);
   if (error) return { data: null, error };
@@ -213,16 +236,21 @@ export async function getPartnerSnapshot() {
 }
 
 export async function pushSnapshot(phase, cycleDay, shareLevel = 'phase', note = null) {
-  const sb = getSupabase();
+  const sb = await getSupabase();
   if (!sb) return { data: null, error: 'not_configured' };
   const { user, error } = await requireUser(sb);
   if (error) return { data: null, error };
+  // Dataminimalisatie ÁÁN de bron: bij share_level 'phase' verlaten cycle_day
+  // en note het toestel simpelweg niet. UI-filtering aan de partnerkant is
+  // geen privacygrens — de partner heeft RLS-SELECT op de hele rij, dus wat
+  // niet gedeeld mag worden hoort niet geüpload te worden.
+  const full = shareLevel === 'full';
   return sb.from('partner_snapshots').upsert({
     owner_user_id: user.id,
     phase,
-    cycle_day: cycleDay,
+    cycle_day: full ? cycleDay : null,
     share_level: shareLevel,
-    owner_note: note,
+    owner_note: full ? note : null,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'owner_user_id' });
 }
