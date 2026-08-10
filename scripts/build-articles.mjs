@@ -294,6 +294,29 @@ export function buildArticles(distDir = 'dist') {
 
   writeSitemap(distDir, urls);
   console.log(`• Built ${count} article(s) + hubs → generated sitemap.xml`);
+
+  // 404.html: zonder dit bestand serveert Cloudflare Pages op onbekende paden
+  // de app-shell met status 200 (SPA-fallback) — een soft-404 die zoekmachines
+  // vervuilt. De app routeert uitsluitend via "/" + query/hash, dus een echte
+  // 404-pagina breekt niets.
+  writeFileSync(`${distDir}/404.html`, pageShell({
+    locale: 'nl',
+    title: `Pagina niet gevonden — ${BRAND}`,
+    description: 'Deze pagina bestaat niet (meer).',
+    canonical: `${SITE}/`,
+    jsonLd: null,
+    bodyHtml: `<div class="hub">
+  <h1>Pagina niet gevonden</h1>
+  <p>Deze pagina bestaat niet (meer). Misschien zoek je een van deze plekken:</p>
+  <ul>
+    <li><a href="/">De app — volg je cyclus, zonder account</a></li>
+    <li><a href="/artikelen/">Artikelen (Nederlands)</a></li>
+    <li><a href="/articles/">Articles (English)</a></li>
+  </ul>
+</div>`,
+  }).replace('<meta name="robots" content="index, follow, max-image-preview:large" />',
+             '<meta name="robots" content="noindex" />'));
+  console.log('• Wrote 404.html (echte 404 i.p.v. SPA-fallback)');
 }
 
 // run-if-main
