@@ -44,6 +44,23 @@ export const MODELS = Object.freeze({
 });
 
 /**
+ * True wanneer de app in de native Capacitor-iOS-shell draait (App Store).
+ *
+ * App Store guideline 3.1.1: digitale abonnementen mogen in een iOS-app
+ * uitsluitend via Apple In-App Purchase — óók een link naar een externe
+ * checkout of billing-portal is een afwijzingsgrond. Zolang er geen IAP is,
+ * schakelt deze vlag premium-gating en alle Stripe-UI volledig uit op iOS
+ * (v1 = alles gratis; IAP kan in v1.1 alsnog).
+ */
+export const IS_NATIVE_IOS = (() => {
+  try {
+    return typeof window !== 'undefined' && window.Capacitor?.getPlatform?.() === 'ios';
+  } catch {
+    return false;
+  }
+})();
+
+/**
  * Endpoint for the runtime personalization proxy (Haiku, server-side key).
  * Empty string ⇒ runtime AI disabled ⇒ free-text falls back to pure template
  * interpolation. Set via window.PACED_CONTENT_PROXY_URL at deploy time.
