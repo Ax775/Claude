@@ -33,6 +33,7 @@ import {
 } from './lib/storage.js';
 import { computeBadges } from './lib/badges.js';
 import { personalize } from './lib/content/personalize.js';
+import { IS_NATIVE_IOS } from './config/brand.js';
 import { initMonitoring, captureError } from './lib/monitoring.js';
 import { resolveEntitlement, canUseFeature } from './lib/entitlement.js';
 import { fetchSubscription, startCheckout, openBillingPortal } from './supabaseSubscription.js';
@@ -5750,7 +5751,16 @@ function EntitlementProvider({ children }) {
   }, [refresh]);
 
   const entitlement = useMemo(
-    () => resolveEntitlement({ trialStartedAt: trial?.startedAt, subscription, now }),
+    () => {
+      // App Store guideline 3.1.1: geen Stripe/externe betalingen in de
+      // native iOS-app. Zolang er geen In-App Purchase is, is alles daar
+      // gratis: status 'active' verbergt de TrialBanner, isPremium ontsluit
+      // alle features, en geen enkele upgrade-flow is bereikbaar.
+      if (IS_NATIVE_IOS) {
+        return { isPremium: true, status: 'active', source: 'native', trialDaysLeft: 0 };
+      }
+      return resolveEntitlement({ trialStartedAt: trial?.startedAt, subscription, now });
+    },
     [trial, subscription, now],
   );
 
@@ -5859,6 +5869,11 @@ function SubscriptionCard() {
   const { t } = useT();
   const { status, trialDaysLeft, openUpgrade } = useEntitlement();
   const [busy, setBusy] = useState(false);
+
+  // Geen abonnements-UI in de native iOS-app: de "beheer"-knop linkt naar het
+  // Stripe-billingportaal en de upgrade-CTA naar checkout — beide verboden
+  // onder App Store 3.1.1 zolang er geen In-App Purchase is.
+  if (IS_NATIVE_IOS) return null;
 
   const manage = async () => {
     setBusy(true);
