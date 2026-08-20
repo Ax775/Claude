@@ -2885,6 +2885,27 @@ function SettingsScreen({ profile, onSave, onReset, onBack, theme = 'auto', onTh
       </Card>
       </PremiumGate>
 
+      {/* Feedback — bewust een kale mailto: geen formulier-backend, geen
+          tracking. De gebruiker mailt vanuit haar eigen app en ziet exact wat
+          ze deelt; de meegegeven context (platform/taal) staat zichtbaar in de
+          conceptmail en is vrij te verwijderen. */}
+      <Card className="p-6 mb-5 anim-fade-up">
+        <div className="text-[11px] uppercase tracking-[0.18em] text-ink-400 mb-3">{t('settings.feedback')}</div>
+        <p className="text-sm text-ink-500 mb-4 leading-relaxed">
+          {t('settings.feedback.note')}
+        </p>
+        <a
+          href={`mailto:info@xaven.io?subject=${encodeURIComponent(t('settings.feedback.subject'))}&body=${encodeURIComponent(
+            t('settings.feedback.body', { platform: IS_NATIVE_IOS ? 'iOS-app' : 'web', locale })
+          )}`}
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-cream-200 bg-cream-50
+                     text-ink-600 text-sm hover:border-sage-200 hover:bg-sage-50 transition"
+        >
+          <Heart className="w-4 h-4 text-sage-600" aria-hidden="true" />
+          {t('settings.feedback.button')}
+        </a>
+      </Card>
+
       {/* Danger zone */}
       <Card className="p-6 anim-fade-up">
         <div className="text-[11px] uppercase tracking-[0.18em] text-ink-400 mb-3">{t('settings.danger')}</div>
