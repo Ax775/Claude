@@ -292,8 +292,50 @@ export function buildArticles(distDir = 'dist') {
     urls.push({ loc: `${SITE}/${base}/`, lastmod: '2026-06-16', changefreq: 'weekly', priority: '0.8' });
   }
 
+  // ── /support/ — vereist door de App Store-vermelding (Support URL) ──
+  mkdirSync(`${distDir}/support`, { recursive: true });
+  writeFileSync(`${distDir}/support/index.html`, pageShell({
+    locale: 'nl',
+    title: `Support — ${BRAND}`,
+    description: `Hulp nodig met ${BRAND}? Antwoorden op veelgestelde vragen en direct contact — we reageren snel.`,
+    canonical: `${SITE}/support/`,
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'ContactPage',
+      name: `Support — ${BRAND}`,
+      url: `${SITE}/support/`,
+      inLanguage: 'nl-NL',
+    },
+    bodyHtml: `<div class="hub">
+  <h1>Support</h1>
+  <p>Vragen over ${BRAND}, iets dat niet werkt, of een idee? We horen het graag en
+  reageren doorgaans binnen een paar dagen.</p>
+  <div class="cta">
+    <strong>Mail ons — we lezen alles zelf.</strong><br/>
+    <a class="btn" href="mailto:info@xaven.io?subject=${encodeURIComponent(`Supportvraag ${BRAND}`)}">info@xaven.io</a>
+  </div>
+  <h2>Veelgestelde vragen</h2>
+  <p><strong>Waar staan mijn gegevens?</strong><br/>
+  Uitsluitend lokaal op je eigen toestel. ${BRAND} heeft geen accounts, geen cloud en
+  geen tracking — wij kunnen je gegevens niet zien. Exporteren (CSV, JSON, Apple
+  Health) of alles wissen doe je in de app via <em>Instellingen</em>.</p>
+  <p><strong>Ik wissel van telefoon — raak ik mijn data kwijt?</strong><br/>
+  Maak in <em>Instellingen</em> een volledige export (JSON) en zet die op je nieuwe
+  toestel terug.</p>
+  <p><strong>Feedback geven?</strong><br/>
+  Kan direct vanuit de app: <em>Instellingen → Feedback</em>. Of mail ons via de knop
+  hierboven.</p>
+  <p><strong>Privacy &amp; disclaimer</strong><br/>
+  De volledige privacyverklaring en medische disclaimer vind je in de app onder
+  <em>Instellingen</em>, of via <a href="/?legal=privacy">deze link</a>. ${BRAND} is een
+  tracking- en bewustwordingsapp, geen medisch hulpmiddel.</p>
+  <p><em>Questions in English? Email us at info@xaven.io — happy to help.</em></p>
+</div>`,
+  }));
+  urls.push({ loc: `${SITE}/support/`, lastmod: '2026-08-23', changefreq: 'yearly', priority: '0.5' });
+
   writeSitemap(distDir, urls);
-  console.log(`• Built ${count} article(s) + hubs → generated sitemap.xml`);
+  console.log(`• Built ${count} article(s) + hubs + /support/ → generated sitemap.xml`);
 
   // 404.html: zonder dit bestand serveert Cloudflare Pages op onbekende paden
   // de app-shell met status 200 (SPA-fallback) — een soft-404 die zoekmachines

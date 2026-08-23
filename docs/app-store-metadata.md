@@ -28,7 +28,7 @@ weigert Apple de review.
 | URL type | Value |
 |---|---|
 | **Privacy Policy** | `https://paced.nl/?legal=privacy` _(of dedicated page)_ |
-| **Support URL** | `https://paced.nl/support` _(maak pagina aan)_ |
+| **Support URL** | `https://paced.nl/support` |
 | **Marketing URL** | `https://paced.nl` |
 | **Copyright** | `© 2026 Xaven BV` |
 
