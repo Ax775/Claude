@@ -244,6 +244,12 @@
        and bottom nav (home indicator). Use env() with safe fallback to 0. */
     .pt-safe { padding-top:    env(safe-area-inset-top,    0); }
     .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0); }
+    /* Schermwortels: met viewport-fit=cover (native iOS-shell én PWA in
+       standalone-modus) begint de viewport ONDER de statusbalk/Dynamic Island.
+       Tailwind's py-8/pt-8 rekent daar niet mee, waardoor de paginakop achter
+       de klok verdween. Deze regel staat na styles.css en wint dus van py-8;
+       in een gewone browsertab is de inset 0 en verandert er niets. */
+    .screen-safe { padding-top: calc(2rem + env(safe-area-inset-top, 0px)); }
     html, body {
       margin: 0;
       padding: 0;

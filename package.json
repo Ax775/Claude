@@ -23,7 +23,7 @@
     "gen:og": "node scripts/generate-og-image.mjs",
     "gen:splash": "node scripts/generate-splash.mjs",
     "preflight": "node scripts/preflight.mjs",
-    "ios:sync": "npm run build && LANG=en_US.UTF-8 npx cap sync ios",
+    "ios:sync": "npm run build && rm -rf ios/App/build && LANG=en_US.UTF-8 npx cap sync ios",
     "ios:open": "npx cap open ios",
     "ios:assets": "npx capacitor-assets generate --ios"
   },
