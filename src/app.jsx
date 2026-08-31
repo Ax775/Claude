@@ -2463,7 +2463,7 @@ function SettingsScreen({ profile, onSave, onReset, onBack, theme = 'auto', onTh
   };
 
   return (
-    <div className="min-h-dvh px-5 py-8 pb-28 max-w-md mx-auto">
+    <div className="min-h-dvh px-5 py-8 pb-28 max-w-md mx-auto screen-safe">
       {/* Toast */}
       {toast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-full bg-ink-700 text-cream-50 text-sm shadow-lg anim-fade-up whitespace-nowrap">
@@ -2961,7 +2961,7 @@ function SettingsScreen({ profile, onSave, onReset, onBack, theme = 'auto', onTh
 function LegalView({ onBack }) {
   const { t } = useT();
   return (
-    <div className="min-h-dvh px-5 py-8 pb-28 max-w-md mx-auto">
+    <div className="min-h-dvh px-5 py-8 pb-28 max-w-md mx-auto screen-safe">
       <header className="flex items-center gap-3 mb-8 anim-fade-up">
         <button
           type="button"
@@ -3345,7 +3345,7 @@ function Dashboard({ profile, onUpdateProfile, onOpenSettings, onOpenVoeding }) 
   const displayName = profile.name ? profile.name.split(' ')[0] : null;
 
   return (
-    <div className="min-h-dvh px-5 py-8 pb-28 max-w-md mx-auto">
+    <div className="min-h-dvh px-5 py-8 pb-28 max-w-md mx-auto screen-safe">
       {/* Header */}
       <header className="flex items-center justify-between mb-7 anim-fade-up">
         <div>
@@ -3933,7 +3933,7 @@ function LogboekView({ profile, onGoHome }) {
   const nextMonthLabel = capitalize(formatDate(nextMonthDate, { month: 'long' }));
 
   return (
-    <div className="min-h-dvh px-5 pt-8 pb-28 max-w-md mx-auto">
+    <div className="min-h-dvh px-5 pt-8 pb-28 max-w-md mx-auto screen-safe">
       <header className="flex items-center justify-between mb-7 anim-fade-up">
         <div>
           <div className="text-[11px] uppercase tracking-[0.18em] text-ink-400">{t('log.subtitle')}</div>
@@ -4088,7 +4088,7 @@ function InsightsView({ profile, onOpenCharts }) {
   const hasSymptomData = Object.values(topByPhase).some(v => v !== null);
 
   return (
-    <div className="min-h-dvh px-5 pt-8 pb-28 max-w-md mx-auto">
+    <div className="min-h-dvh px-5 pt-8 pb-28 max-w-md mx-auto screen-safe">
       <header className="mb-7 anim-fade-up">
         <div className="text-[11px] uppercase tracking-[0.18em] text-ink-400">{t('stats.subtitle')}</div>
         <h1 className="font-display text-[30px] leading-tight text-ink-700">{t('stats.title')}</h1>
@@ -5393,7 +5393,7 @@ function VoedingView({ profile }) {
   const phaseLabel = phaseMeta(state.phase)?.label?.toLowerCase() ?? '';
 
   return (
-    <div className="min-h-dvh px-5 pt-8 pb-28 max-w-md mx-auto">
+    <div className="min-h-dvh px-5 pt-8 pb-28 max-w-md mx-auto screen-safe">
       <header className="mb-7 anim-fade-up">
         <div className="text-[11px] uppercase tracking-[0.18em] text-ink-400">{t('food.subtitle')}</div>
         <h1 className="font-display text-[30px] leading-tight text-ink-700">{t('food.title')}</h1>
@@ -5483,7 +5483,7 @@ function VoedingView({ profile }) {
 function AllChartsView({ profile, onBack }) {
   const { t } = useT();
   return (
-    <div className="min-h-dvh px-5 pt-8 pb-28 max-w-md mx-auto">
+    <div className="min-h-dvh px-5 pt-8 pb-28 max-w-md mx-auto screen-safe">
       <header className="flex items-center gap-3 mb-7 anim-fade-up">
         <button
           type="button"
