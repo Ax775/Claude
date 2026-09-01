@@ -6111,6 +6111,13 @@ function App() {
   const [pendingInvite] = useState(() =>
     new URLSearchParams(window.location.search).get('invite') || null
   );
+  // ?legal=privacy — de publieke privacy-URL (o.a. in de App Store-vermelding
+  // en de AVG-verplichte verwijzing). Moet de tekst direct tonen, óók voor een
+  // bezoeker zonder profiel: anders landt een reviewer of toezichthouder op de
+  // onboarding en is de verklaring onbereikbaar.
+  const [legalDeepLink, setLegalDeepLink] = useState(() =>
+    new URLSearchParams(window.location.search).has('legal')
+  );
   const [showInviteModal, setShowInviteModal] = useState(!!pendingInvite);
   // Invite-modal authentication state — checked on mount so we know whether
   // to show a direct "Koppelen" button or first prompt for magic-link login.
@@ -6263,6 +6270,24 @@ function App() {
       window.removeEventListener('unhandledrejection', onRejected);
     };
   }, []);
+
+  // Vóór alles: de publieke privacy-/disclaimer-URL moet altijd werken,
+  // ongeacht of er een profiel of consent is.
+  if (legalDeepLink) {
+    return (
+      <LegalView
+        onBack={() => {
+          // Ruim de query op zodat een refresh de app normaal opent.
+          try {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('legal');
+            window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+          } catch { /* history niet beschikbaar — niet kritiek */ }
+          setLegalDeepLink(false);
+        }}
+      />
+    );
+  }
 
   if (!profile) return <Onboarding onComplete={setProfile} />;
 
